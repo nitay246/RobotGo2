@@ -92,7 +92,7 @@ def main():
                 confs = res.boxes.conf.cpu().numpy()
 
                 for (x1, y1, x2, y2), cid, p in zip(boxes, clss, confs):
-                    if names.get(int(cid), "") != "bench" or p < AppConfig.MIN_CONF:
+                    if names.get(int(cid), "") != "chair" or p < AppConfig.MIN_CONF:
                         continue
                     if (y2 - y1) < (AppConfig.MIN_BOX_FRAC * h):
                         continue
@@ -106,6 +106,9 @@ def main():
 
             # -------------------- FOLLOW MODE --------------------
             if mode == "FOLLOW":
+                if now - last_announce >= 0.5:
+                    print("In FOLLOW")
+                    last_announce = now
                 if now >= behavior["cooldown_until"]:
 
                     if not lock.active and candidates:
@@ -117,7 +120,10 @@ def main():
                             behavior["wz"] = 0.0
 
             # -------------------- APPROACH MODE --------------------
-            elif mode == "APPROACH":
+            if mode == "APPROACH":
+                if now - last_announce >= 0.5:
+                    print("In APROACH")
+                    last_announce = now
 
                 if lock.active:
                     lock.update(candidates)
@@ -129,7 +135,8 @@ def main():
                     x1, y1, x2, y2 = lock.box
                     cx = 0.5 * (x1 + x2)
                     bh = float(y2 - y1)
-                    ex = (cx - roi_cx) / max(roi_w, 1.0)
+                    ex = (cx - roi_cx) / max(roi_w, 2)
+                    print(ex)
                     size_ratio = bh / max(roi_h, 1.0)
                     ey = 1.0 - size_ratio
 
@@ -159,14 +166,13 @@ def main():
                     cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 255), 3)
 
             # -------------------- HOLD MODE --------------------
-            elif mode == "HOLD":
+            if mode == "HOLD":
                 behavior["vx"] = 0.0
                 behavior["wz"] = 0.0
 
-                if now - last_announce >= 1.0:
+                if now - last_announce >= 0.5:
                     print("Found — holding position…")
                     sport.Hello()
-                    # sport.WiggleHips()
                     last_announce = now
 
                 if now >= hold_until:

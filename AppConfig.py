@@ -7,7 +7,7 @@ class AppConfig:
     CAM_TIMEOUT_SEC = 2.0
 
     # -------------------- YOLO / ROI --------------------
-    MIN_CONF = 0.35
+    MIN_CONF = 0.7
     MIN_BOX_FRAC = 0.05
     ROI_NORM = (0.33, 0.1, 0.67, 0.8)
     SIZE_TOL = 0.08
@@ -37,5 +37,5 @@ class AppConfig:
 
     # -------------------- Behavior timing --------------------
     HOLD_SECONDS = 3.0
-    COOLDOWN_SECONDS = 15.0
+    COOLDOWN_SECONDS = 30.0
 
