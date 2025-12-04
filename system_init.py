@@ -104,8 +104,8 @@ class SystemInit:
         names = model.model.names
 
         print("[INIT] Creating display window...")
-        cv2.namedWindow(self.cfg.WIN_NAME, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.cfg.WIN_NAME, 960, 540)
+        # cv2.namedWindow(self.cfg.WIN_NAME, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.cfg.WIN_NAME, 960, 540)
 
         return cam, model, names
 

@@ -1,18 +1,54 @@
 import signal
 import time
-import math
 import threading
 import cv2
-import numpy as np
-from ultralytics import YOLO
+from concurrent.futures import ThreadPoolExecutor
+import logging
+import asyncio
 
 # Project imports
 from AppConfig import AppConfig
 from system_init import SystemInit
-from target_lock import TargetLock
-from camera import Camera
+
+logger = logging.getLogger(__name__)
 
 # -------------------- Globals --------------------
+audio_hub = None
+audio_loop = None # New global to hold the background event loop
+
+def start_audio_service():
+    """
+    Runs in a separate thread. Initializes the connection and keeps 
+    the event loop running forever so the connection doesn't drop.
+    """
+    global audio_hub, audio_loop
+    
+    # Imports specific to this scope
+    from go2_webrtc_driver.webrtc_driver import Go2WebRTCConnection, WebRTCConnectionMethod
+    from go2_webrtc_driver.webrtc_audiohub import WebRTCAudioHub
+    
+    # Create a new event loop for this thread
+    audio_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(audio_loop)
+    
+    # specific IP for Go2
+    conn = Go2WebRTCConnection(WebRTCConnectionMethod.LocalSTA, ip="192.168.123.161")
+
+    try:
+        # Connect and initialize
+        audio_loop.run_until_complete(conn.connect())
+        audio_hub = WebRTCAudioHub(conn, logger)
+        print("[AUDIO] Service started and connected.")
+        
+        # Keep this loop running indefinitely to handle audio tasks
+        audio_loop.run_forever()
+    except Exception as e:
+        print(f"[AUDIO] Error in audio thread: {e}")
+    finally:
+        # cleanup if loop stops
+        if conn:
+            audio_loop.run_until_complete(conn.disconnect())
+
 stop_event = threading.Event()
 
 behavior = {
@@ -29,9 +65,59 @@ behavior = {
 def handle_sigint(signum, frame):
     print("\n[SYS] Ctrl+C detected — stopping...")
     stop_event.set()
+    
+    # Gracefully stop the audio loop
+    global audio_loop
+    if audio_loop and audio_loop.is_running():
+        # Schedule the loop to stop from a thread-safe context
+        audio_loop.call_soon_threadsafe(audio_loop.stop)
+
+def bark():
+    """
+    Thread-safe bark function. 
+    Sends the play command to the background audio thread.
+    """
+    global audio_hub, audio_loop
+    
+    if audio_hub is None or audio_loop is None:
+        print("[AUDIO] Audio system not ready yet.")
+        return
+
+    # The coroutine we want to run
+    async def play_coro():
+        # UUID for the specific sound
+        task = audio_hub.play_by_uuid('01315020-c95f-45b3-a29e-388d2bffbb2d')
+        # Wait for it with a timeout inside the async loop
+        await asyncio.wait_for(task, timeout=2.0)
+        return "Done"
+
+    try:    
+        # Submit the work to the background thread
+        future = asyncio.run_coroutine_threadsafe(play_coro(), audio_loop)
+        
+        # Wait for the result on the main thread (blocking for max 3 seconds)
+        # This 3.0 allows for the 2.0s audio timeout + 1.0s buffer
+        result = future.result(timeout=3.0) 
+        # print(f"[AUDIO] Result: {result}") # Optional: debug print
+        
+    except (asyncio.TimeoutError, TimeoutError):
+        # This catches if the main thread waited too long for the background thread
+        print(f"[AUDIO] Timeout occurred after 2 seconds (Bark Skipped)")
+    except Exception as e:
+        print(f"[AUDIO] Error triggering bark: {e}")
 
 # -------------------- Main --------------------
 def main():
+    # --- MODIFIED: Start Audio in Background Thread ---
+    audio_thread = threading.Thread(target=start_audio_service, daemon=True)
+    audio_thread.start()
+
+    # Wait briefly for audio to initialize (optional, but prevents 'None' errors immediately)
+    print("[SYS] Waiting for audio connection...")
+    while audio_hub is None:
+        time.sleep(0.1)
+    # --------------------------------------------------
+
     signal.signal(signal.SIGINT, handle_sigint)
 
     # ------------------------------------------------------------
@@ -40,6 +126,7 @@ def main():
     sys = SystemInit(AppConfig)
 
     state_manager, sport, avoid = sys.init_unitree(behavior)
+
     follower = sys.init_follower(state_manager, avoid, behavior, stop_event)
     follower.stop_event = stop_event  # attach the real stop_event
 
@@ -169,6 +256,11 @@ def main():
             if mode == "HOLD":
                 behavior["vx"] = 0.0
                 behavior["wz"] = 0.0
+                
+                # --- MODIFIED: Call new bark function ---
+                # We removed the arguments because it uses globals internally now
+                bark() 
+                # ----------------------------------------
 
                 if now - last_announce >= 0.5:
                     print("Found — holding position…")
@@ -202,10 +294,11 @@ def main():
                             cv2.LINE_AA)
                 fps_t0 = now
                 frames = 0
+     
+        # cv2.imshow(AppConfig.WIN_NAME, frame)
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #   break 
 
-            cv2.imshow(AppConfig.WIN_NAME, frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
     finally:
         stop_event.set()
