@@ -1,4 +1,4 @@
-# Unitree Go2 – UWB-Based Following with Vision-Based Object Approach
+#  🤖 Unitree Go2 – UWB-Based Following with Vision-Based Object Approach 
 
 ## Motivation & Goal
 
