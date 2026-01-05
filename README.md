@@ -18,6 +18,8 @@ An emergency stop mechanism is available via the UWB controller, allowing immedi
 
 For a detailed system description, architecture overview, and design rationale, please refer to the project [Wiki](../../wiki).
 
+A guide for the routine operation of the Go2 robot can be found at this [link](https://docs.google.com/document/d/14_qHkVyDAV9-awSuEr1Pa4G2HZZrMQGCJ11ud12n6Hk/edit?usp=sharing).
+
 
 
 
