@@ -28,14 +28,7 @@ The following example demonstrates a typical system execution scenario:
 
 ▶️ **System demonstration video:**
 
-[![System Demo](assets/demo.png)](https://user-images.githubusercontent.com/XXXX/WhatsApp.Video.2026-01-05.at.11.52.29.mp4)
-
-
-
-
-
-
-
+[System Demo](https://github.com/user-attachments/assets/7d9a5e49-e259-4a5c-9ea6-8031682adc1d)
 
 For a detailed system description, architecture overview, and design rationale, please refer to the project [Wiki](../../wiki).
 
