@@ -1,17 +1,21 @@
 # Unitree Go2 – UWB-Based Following with Vision-Based Object Approach
 
-## Overview
-
-This project implements a behavior-based control system for the Unitree Go2 robot that combines UWB-based following with real-time vision perception.
-
-In its default **FOLLOW** mode, the robot continuously tracks a wearable UWB tag, using distance and orientation estimates to generate smooth motion commands. In parallel, a camera-based vision pipeline runs continuously and searches for a specific visual object using a YOLOv8 object detection model.
-
-When a valid object is detected, the system stabilizes the target selection using a lightweight target-locking mechanism and transitions to an **APPROACH** mode. In this mode, motion control is driven by visual feedback, allowing the robot to align itself and move toward the target in a controlled and stable manner. Once the desired proximity is reached, the robot enters a **HOLD** state, stops its motion, and provides user feedback through a gesture and an audio cue. After a short delay, the system returns to **FOLLOW** mode and resumes UWB-based tracking.
-
-An emergency shutdown mechanism is available via the UWB controller’s X button, allowing the system to be stopped immediately at any time. All major thresholds, motion limits, and timing parameters are centralized in a configuration module, enabling fast tuning without modifying core logic.
-
 ## Motivation & Goal
 
-Autonomous mobile robots operating in real-world environments must handle unreliable sensing, communication constraints, and dynamic human interaction. Relying on a single sensing modality is often insufficient, as UWB-based tracking lacks semantic awareness, while vision-based perception is sensitive to noise, occlusions, and environmental conditions.
+The primary goal of this project is to emulate the experience of walking with a dog, where the dog naturally follows its owner, maintains smooth motion, and occasionally reacts to the environment or approaches objects of interest in a safe and intuitive manner.
 
-The goal of this project is to design a robust behavior-driven system that fuses UWB and vision data to enable smooth following, reliable object approach, and safe state transitions. By combining complementary sensing modalities and clear behavioral states, the system aims to provide intuitive human–robot interaction while maintaining real-time responsiveness, safety, and extensibility.
+Inspired by this behavior, the project aims to develop a behavior-driven control system for the Unitree Go2 robot that enables continuous user following, environment-aware object interaction, and controlled transitions between behavioral states. The system is designed to provide a natural companion-like interaction while maintaining real-time responsiveness, safety, and extensibility.
+
+## Overview
+
+This project implements a behavior-based control system for the Unitree Go2 robot that integrates UWB-based localization with real-time vision perception.
+
+In its default **FOLLOW** state, the robot tracks a wearable UWB tag and generates smooth motion commands based on relative distance and orientation. A vision pipeline runs in parallel, continuously analyzing the camera feed to detect predefined objects using a YOLOv8-based object detection model.
+
+Upon detecting a valid object, the system stabilizes the selection through a lightweight target-locking mechanism and transitions to an **APPROACH** state, where motion control is driven by visual feedback. Once the robot reaches the desired proximity, it enters a **HOLD** state, stops its motion, and provides user feedback. After a short delay, the system returns to **FOLLOW** and resumes UWB-based tracking.
+
+An emergency stop mechanism is available via the UWB controller, allowing immediate system shutdown at any time. All motion thresholds, timing parameters, and behavioral constraints are centralized in a configuration module, enabling efficient tuning without modifying the core logic.
+
+
+
+
