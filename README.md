@@ -16,6 +16,27 @@ Upon detecting a valid object, the system stabilizes the selection through a lig
 
 An emergency stop mechanism is available via the UWB controller, allowing immediate system shutdown at any time. All motion thresholds, timing parameters, and behavioral constraints are centralized in a configuration module, enabling efficient tuning without modifying the core logic.
 
+## Example Run
+
+The following example demonstrates a typical system execution scenario:
+- The robot starts in **FOLLOW** mode and tracks a wearable UWB tag.
+- While following, the vision pipeline runs in parallel and monitors the environment.
+- Upon detecting a predefined object, the system transitions to **APPROACH** mode.
+- After reaching the desired proximity, the robot enters **HOLD**, provides user feedback, and then returns to **FOLLOW**.
+
+## Demo
+
+▶️ **System demonstration video:**
+
+[![System Demo](assets/demo.png)](https://user-images.githubusercontent.com/XXXX/WhatsApp.Video.2026-01-05.at.11.52.29.mp4)
+
+
+
+
+
+
+
+
 For a detailed system description, architecture overview, and design rationale, please refer to the project [Wiki](../../wiki).
 
 A guide for the routine operation of the Go2 robot can be found at this [link](https://docs.google.com/document/d/14_qHkVyDAV9-awSuEr1Pa4G2HZZrMQGCJ11ud12n6Hk/edit?usp=sharing).
