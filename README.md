@@ -16,6 +16,8 @@ Upon detecting a valid object, the system stabilizes the selection through a lig
 
 An emergency stop mechanism is available via the UWB controller, allowing immediate system shutdown at any time. All motion thresholds, timing parameters, and behavioral constraints are centralized in a configuration module, enabling efficient tuning without modifying the core logic.
 
+For a detailed system description, architecture overview, and design rationale, please refer to the project [Wiki](../../wiki).
+
 
 
 
