@@ -103,3 +103,91 @@ class TargetLock:
                 self.reset()
 
         return self.active
+
+
+def find_person_candidates(
+    yolo_result: object,
+    class_names: dict,
+    min_conf: float,
+    min_box_frac_h: float,
+    frame_height: int
+) -> List[Candidate]:
+    """
+    (TESTING) Processes raw YOLO results to find any 'person' as a candidate.
+    """
+    candidates: List[Candidate] = []
+    if not hasattr(yolo_result, 'boxes') or yolo_result.boxes is None:
+        return []
+
+    boxes = yolo_result.boxes.xyxy.cpu().numpy()
+    clss = yolo_result.boxes.cls.cpu().numpy().astype(int)
+    confs = yolo_result.boxes.conf.cpu().numpy()
+
+    for (x1, y1, x2, y2), cid, p in zip(boxes, clss, confs):
+        if p < min_conf:
+            continue
+        
+        box_h = y2 - y1
+        if box_h < (min_box_frac_h * frame_height):
+            continue
+
+        class_name = class_names.get(int(cid), "")
+        
+        if class_name == 'person':
+            coords = (float(x1), float(y1), float(x2), float(y2))
+            candidates.append((float(p), coords))
+
+    return candidates
+
+
+def find_person_on_bench_candidates(
+    yolo_result: object,
+    class_names: dict,
+    min_conf: float,
+    min_box_frac_h: float,
+    frame_height: int
+) -> List[Candidate]:
+    """
+    (PRODUCTION) Processes raw YOLO results to find "person on bench" scenes.
+    """
+    persons = []
+    benches = []
+    if not hasattr(yolo_result, 'boxes') or yolo_result.boxes is None:
+        return []
+
+    boxes = yolo_result.boxes.xyxy.cpu().numpy()
+    clss = yolo_result.boxes.cls.cpu().numpy().astype(int)
+    confs = yolo_result.boxes.conf.cpu().numpy()
+
+    for (x1, y1, x2, y2), cid, p in zip(boxes, clss, confs):
+        if p < min_conf:
+            continue
+        
+        box_h = y2 - y1
+        if box_h < (min_box_frac_h * frame_height):
+            continue
+
+        class_name = class_names.get(int(cid), "")
+        coords = (float(x1), float(y1), float(x2), float(y2))
+        if class_name == 'person':
+            persons.append({'conf': float(p), 'box': coords})
+        elif class_name == 'bench':
+            benches.append({'conf': float(p), 'box': coords})
+
+    candidates: List[Candidate] = []
+    for p_obj in persons:
+        px1, py1, px2, py2 = p_obj['box']
+        person_center_x = (px1 + px2) / 2
+
+        for b_obj in benches:
+            bx1, by1, bx2, by2 = b_obj['box']
+
+            is_horizontally_aligned = (bx1 < person_center_x < bx2)
+            is_vertically_aligned = (by1 < py2 < by2)
+
+            if is_horizontally_aligned and is_vertically_aligned:
+                union_box = (min(px1, bx1), min(py1, by1), max(px2, bx2), max(py2, by2))
+                candidates.append((p_obj['conf'], union_box))
+                break
+
+    return candidates

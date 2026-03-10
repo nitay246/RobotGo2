@@ -7,11 +7,15 @@ class AppConfig:
     CAM_TIMEOUT_SEC = 2.0
 
     # -------------------- YOLO / ROI --------------------
-    MIN_CONF = 0.7
+    MIN_CONF = 0.4
     MIN_BOX_FRAC = 0.05
-    ROI_NORM = (0.33, 0.1, 0.67, 0.8)
+    ROI_NORM = (0.2, 0.1, 0.8, 0.8)
     SIZE_TOL = 0.08
     CENTER_TOL = 0.10
+
+    # -------------------- Behavior / Detection Mode --------------------
+    # "PERSON_ON_BENCH" for production, "PERSON_ONLY" for testing
+    DETECTION_MODE = "PERSON_ONLY"
 
     # -------------------- Motion Control --------------------
     MAX_VX = 0.40     # m/s

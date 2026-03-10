@@ -9,6 +9,8 @@ import asyncio
 # Project imports
 from AppConfig import AppConfig
 from system_init import SystemInit
+# Import both functions
+from target_lock import TargetLock, TargetLockConfig, find_person_on_bench_candidates, find_person_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,33 @@ behavior = {
 }
 
 # -------------------- Utilities --------------------
+
+def motion_executor(avoid_client, behavior_dict, stop_evt, rate_hz=50):
+    """
+    Dedicated thread to execute motion commands.
+    This is the ONLY place `avoid.Move` should be called.
+    It reads the target velocities (vx, wz) from the shared behavior dictionary.
+    """
+    print("[MOTION] Executor thread started.")
+    dt = 1.0 / rate_hz
+    while not stop_evt.is_set():
+        # Read the desired velocities from the shared state
+        vx_target = behavior_dict.get("vx", 0.0)
+        wz_target = behavior_dict.get("wz", 0.0)
+
+        try:
+            # Send the command to the robot
+            avoid_client.Move(vx_target, 0.0, wz_target)
+        except Exception as e:
+            print(f"[MOTION] Error sending move command: {e}")
+
+        time.sleep(dt)
+    
+    # Ensure robot stops when the loop exits
+    avoid_client.Move(0.0, 0.0, 0.0)
+    print("[MOTION] Executor thread stopped.")
+
+
 def handle_sigint(signum, frame):
     print("\n[SYS] Ctrl+C detected — stopping...")
     stop_event.set()
@@ -109,13 +138,13 @@ def bark():
 # -------------------- Main --------------------
 def main():
     # --- MODIFIED: Start Audio in Background Thread ---
-    audio_thread = threading.Thread(target=start_audio_service, daemon=True)
-    audio_thread.start()
+    # audio_thread = threading.Thread(target=start_audio_service, daemon=True)
+    # audio_thread.start()
 
-    # Wait briefly for audio to initialize (optional, but prevents 'None' errors immediately)
-    print("[SYS] Waiting for audio connection...")
-    while audio_hub is None:
-        time.sleep(0.1)
+    # # Wait briefly for audio to initialize (optional, but prevents 'None' errors immediately)
+    # print("[SYS] Waiting for audio connection...")
+    # while audio_hub is None:
+    #     time.sleep(0.1)
     # --------------------------------------------------
 
     signal.signal(signal.SIGINT, handle_sigint)
@@ -125,7 +154,16 @@ def main():
     # ------------------------------------------------------------
     sys = SystemInit(AppConfig)
 
-    state_manager, sport, avoid = sys.init_unitree(behavior)
+    state_manager, sport, avoid = sys.init_unitree()
+
+    # --- MODIFIED: Launch the new Motion Executor Thread ---
+    motion_thread = threading.Thread(
+        target=motion_executor,
+        args=(avoid, behavior, stop_event),
+        daemon=True
+    )
+    motion_thread.start()
+    # -------------------------------------------------------
 
     follower = sys.init_follower(state_manager, avoid, behavior, stop_event)
     follower.stop_event = stop_event  # attach the real stop_event
@@ -169,25 +207,21 @@ def main():
             cv2.rectangle(frame, (rx1, ry1), (rx2, ry2), roi_col, 2)
 
             # YOLO inference
-            res = model.predict(frame, imgsz=640, conf=AppConfig.MIN_CONF, verbose=False)[0]
+            res = model.predict(frame, imgsz=320, conf=AppConfig.MIN_CONF, verbose=False)[0]
 
-            # Collect candidates (only backpacks)
-            candidates = []
-            if hasattr(res, 'boxes') and res.boxes is not None:
-                boxes = res.boxes.xyxy.cpu().numpy()
-                clss = res.boxes.cls.cpu().numpy().astype(int)
-                confs = res.boxes.conf.cpu().numpy()
-
-                for (x1, y1, x2, y2), cid, p in zip(boxes, clss, confs):
-                    if names.get(int(cid), "") != "chair" or p < AppConfig.MIN_CONF:
-                        continue
-                    if (y2 - y1) < (AppConfig.MIN_BOX_FRAC * h):
-                        continue
-                    candidates.append((float(p), (float(x1), float(y1), float(x2), float(y2))))
+            # --- Call the selected function ---
+            candidates = candidate_finder_fn(
+                yolo_result=res,
+                class_names=names,
+                min_conf=AppConfig.MIN_CONF,
+                min_box_frac_h=AppConfig.MIN_BOX_FRAC,
+                frame_height=h
+            )
 
             now = time.time()
             mode = behavior["mode"]
 
+            # -------------------- State Machine --------------------
             # Share ROI with motion thread
             behavior["roi_px"] = (rx1, ry1, rx2, ry2)
 
@@ -259,7 +293,7 @@ def main():
                 
                 # --- MODIFIED: Call new bark function ---
                 # We removed the arguments because it uses globals internally now
-                bark() 
+                # bark() 
                 # ----------------------------------------
 
                 if now - last_announce >= 0.5:
@@ -295,18 +329,18 @@ def main():
                 fps_t0 = now
                 frames = 0
      
-        # cv2.imshow(AppConfig.WIN_NAME, frame)
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #   break 
+            cv2.imshow(AppConfig.WIN_NAME, frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break 
 
 
     finally:
         stop_event.set()
-        avoid.Move(0.0, 0.0, 0.0)
-        avoid.UseRemoteCommandFromApi(False)
+        # No need to call avoid.Move here, the executor thread will handle it.
         cam.close()
         cv2.destroyAllWindows()
         follower.join(timeout=1.0)
+        motion_thread.join(timeout=1.0) # Join the new motion thread
         print("[SYS] Shutdown complete.")
 
 

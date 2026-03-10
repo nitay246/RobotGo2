@@ -58,54 +58,42 @@ class FollowController:
 
     # -------------------- Internal loop --------------------
     def _run_loop(self, stop_evt: threading.Event):
-        vx_cmd, wz_cmd = 0.0, 0.0
-
+        """
+        Calculates follow velocities and updates the shared behavior dictionary
+        if the current mode is 'FOLLOW'.
+        """
         while not stop_evt.is_set():
-            # --- Read UWB estimates ---
-            dis = getattr(self.state_manager.remote_state, "distance_est", None)
-            ori = getattr(self.state_manager.remote_state, "orientation_est", None)
+            # Only perform calculations if the mode is FOLLOW
+            if self.behavior.get("mode") == "FOLLOW":
+                # --- Read UWB estimates ---
+                dis = getattr(self.state_manager.remote_state, "distance_est", None)
+                ori = getattr(self.state_manager.remote_state, "orientation_est", None)
 
-            # Distance control (vx_follow)
-            if dis is None:
-                vx_follow = 0.0
-            else:
-                err_d = dis
-                if abs(err_d) <= self.cfg.DEAD_BAND_D:
+                # Distance control (vx_follow)
+                if dis is None:
                     vx_follow = 0.0
                 else:
-                    scale = min(abs(err_d) / self.cfg.DIST_SLOWDOWN, 1.0)
-                    vx_follow = math.copysign(self.cfg.MAX_VX_FOLLOW * scale, err_d)
-                    vx_follow = max(-self.cfg.MAX_VX_FOLLOW, min(self.cfg.MAX_VX_FOLLOW, vx_follow))
+                    err_d = dis - self.cfg.DEAD_BAND_D # Error is distance from deadband
+                    if abs(err_d) <= 0.1: # A small tolerance within the deadband
+                        vx_follow = 0.0
+                    else:
+                        scale = min(abs(err_d) / self.cfg.DIST_SLOWDOWN, 1.0)
+                        vx_follow = math.copysign(self.cfg.MAX_VX_FOLLOW * scale, err_d)
 
-            # Orientation control (wz_follow)
-            if ori is None:
-                wz_follow = 0.0
-            else:
-                err_o = ori
-                if abs(err_o) <= self.cfg.DEAD_BAND_O:
+                # Orientation control (wz_follow)
+                if ori is None:
                     wz_follow = 0.0
                 else:
-                    scale = min(abs(err_o) / self.cfg.SLOWDOWN_ANGLE, 1.0)
-                    wz_follow = math.copysign(self.cfg.MAX_WZ_FOLLOW * scale, err_o)
-                    wz_follow = max(-self.cfg.MAX_WZ_FOLLOW, min(self.cfg.MAX_WZ_FOLLOW, wz_follow))
+                    err_o = ori
+                    if abs(err_o) <= self.cfg.DEAD_BAND_O:
+                        wz_follow = 0.0
+                    else:
+                        scale = min(abs(err_o) / self.cfg.SLOWDOWN_ANGLE, 1.0)
+                        wz_follow = math.copysign(self.cfg.MAX_WZ_FOLLOW * scale, err_o)
 
-            # --- Blend with behavior state ---
-            mode = self.behavior.get("mode", "FOLLOW")
-            if mode in ("APPROACH", "HOLD"):
-                vx_t = float(self.behavior.get("vx", 0.0))
-                wz_t = float(self.behavior.get("wz", 0.0))
-            else:  # "FOLLOW"
-                vx_t = vx_follow
-                wz_t = wz_follow
-
-
-            # Send command
-            try:
-                self.avoid_client.Move(vx_t, 0.0, wz_t)
-            except Exception as e:
-                print(f"[FOLLOW MOVE] Error: {e}")
-
+                # Update the shared behavior dictionary with calculated velocities
+                self.behavior["vx"] = vx_follow
+                self.behavior["wz"] = wz_follow
+            
+            # If mode is not FOLLOW, this thread does nothing and waits.
             time.sleep(self.cfg.FOLLOW_DT)
-
-        # Stop safely when loop exits
-        self.avoid_client.Move(0.0, 0.0, 0.0)
