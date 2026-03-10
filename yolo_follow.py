@@ -182,6 +182,15 @@ def main():
 
     # -------------------- YOLO + state machine loop --------------------
     try:
+        # --- STRATEGY PATTERN: Select the detection function based on config ---
+        if AppConfig.DETECTION_MODE == "PERSON_ON_BENCH":
+            candidate_finder_fn = find_person_on_bench_candidates
+            print("[INFO] Detection mode set to: PERSON_ON_BENCH (Production)")
+        else:
+            candidate_finder_fn = find_person_candidates
+            print("[INFO] Detection mode set to: PERSON_ONLY (Testing)")
+        # --------------------------------------------------------------------
+
         while not stop_event.is_set():
 
             frame = cam.get_frame()
