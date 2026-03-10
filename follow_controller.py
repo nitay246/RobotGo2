@@ -1,4 +1,3 @@
-# Comments in English only
 import time
 import math
 import threading
