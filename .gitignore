@@ -24,12 +24,16 @@ htmlcov/
 *.log
 *.tmp
 *.pid
+from_robot_images/
 
 # IDE/editor files
 .vscode/
 .idea/
 *.swp
 *.swo
+
+
+
 
 # OS files
 .DS_Store
